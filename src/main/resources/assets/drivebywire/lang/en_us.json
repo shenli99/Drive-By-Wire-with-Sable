@@ -1,0 +1,40 @@
+{
+  "itemGroup.drivebywire" : "Drive By Wire",
+  
+  "block.drivebywire.backup_block" : "Network Backup Block",
+  "block.drivebywire.controller_hub" : "Linked Controller Hub",
+  "block.drivebywire.tweaked_controller_hub" : "Tweaked Controller Hub",
+  
+  "item.drivebywire.wire" : "Cable",
+  "item.drivebywire.wire_cutter" : "Cable Cutter",
+  "subtitle.drivebywire.plug.in" : "Cable connected",
+  "subtitle.drivebywire.plug.out" : "Cable disconnected",
+  
+  "item.drivebywire.wire_cutter.tooltip.summary" : "Bad connection? Too many cables? Just cut them all!",
+  "block.drivebywire.backup_block.tooltip.summary" : "Saves same-sublevel cable links into schematics and restores them when the sublevel comes back",
+  "block.drivebywire.controller_hub.tooltip.summary" : "Bind your controller to this block, and control this network from far away!",
+  "block.drivebywire.tweaked_controller_hub.tooltip.summary" : "Bind your controller to this block, and control this network from far away!",
+  
+  "drivebywire.ponder.wires.header" : "Cable networks 101",
+  "drivebywire.ponder.wires.text_1" : "Disclaimer: Cable networks only work on assembled VS2 ships!",
+  "drivebywire.ponder.wires.text_2" : "Connect a redstone source to a block,",
+  "drivebywire.ponder.wires.text_3" : "And the redstone power is transmitted over cable",
+  "drivebywire.ponder.wires.text_4" : "Connect a block to a block,",
+  "drivebywire.ponder.wires.text_5" : "And adjacent redstone power is transmitted over cable",
+
+  "drivebywire.ponder.lectern.header" : "Special connections 101",
+  "drivebywire.ponder.lectern.text_1" : "Connections from lectern controllers have a special feature,",
+  "drivebywire.ponder.lectern.text_2" : "they have multiple channels to transmit over, corresponding to the controller keys.",
+  "drivebywire.ponder.lectern.text_3" : "Select the channel you want using the scrollwheel when holding Cables.",
+
+  "drivebywire.ponder.save.header" : "Saving networks 101",
+  "drivebywire.ponder.save.text_1" : "What if you wanted to save your network to schematic, and reload it?",
+  "drivebywire.ponder.save.text_2" : "Place a Backup Block on your sublevel before you schematic it,",
+  "drivebywire.ponder.save.text_3" : "And internal same-sublevel connections will be restored when the placed schematic is assembled.",
+
+  "drivebywire.ponder.link.header" : "Relinking networks 101",
+  "drivebywire.ponder.link.text_1" : "Cross-sublevel schematic relinking is not supported yet.",
+  "drivebywire.ponder.link.text_2" : "Backup Blocks currently preserve only internal same-sublevel cable links.",
+  "drivebywire.ponder.link.text_3" : "Connections that cross into the world or another sublevel are skipped for now.",
+  "drivebywire.ponder.link.text_4" : "Those links can come back later when the blueprint API grows the mapping hooks we need."
+}

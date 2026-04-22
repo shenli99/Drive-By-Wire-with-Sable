@@ -1,0 +1,18 @@
+{
+  "plug_in" : {
+    "subtitle": "subtitle.drivebywire.plug.in",
+    "sounds" : [
+      {
+        "name": "drivebywire:plug_in"
+      }
+    ]
+  },
+  "plug_out": {
+    "subtitle": "subtitle.drivebywire.plug.out",
+    "sounds" : [
+      {
+        "name": "drivebywire:plug_out"
+      }
+    ]
+  }
+}

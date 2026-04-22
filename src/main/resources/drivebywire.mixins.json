@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "edn.stratodonut.drivebywire.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinServerLevel",
+    "compat.aeronautics.MixinWheelMountBlockEntity",
+    "compat.MixinLecternControllerBlock",
+    "compat.MixinLinkedControllerInputPacket",
+    "compat.MixinLinkedControllerStopLecternPacket",
+    "compat.tweaked.MixinLecternTweakedBlock",
+    "compat.tweaked.MixinTweakedController",
+    "compat.tweaked.MixinTweakedControllerAxisPacket",
+    "compat.tweaked.MixinTweakedControllerButtonPacket",
+    "compat.tweaked.MixinTweakedControllerStopLecternPacket"
+  ],
+  "client": [
+    "client.MixinSchematicAndQuillHandler"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "minVersion": "0.8",
+  "refmap": "drivebywire.refmap.json"
+}
