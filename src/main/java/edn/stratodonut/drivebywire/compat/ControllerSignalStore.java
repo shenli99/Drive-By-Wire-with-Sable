@@ -1,10 +1,8 @@
 package edn.stratodonut.drivebywire.compat;
 
-import edn.stratodonut.drivebywire.network.WireSourceSignalPacket;
 import edn.stratodonut.drivebywire.wire.WireNetworkManager;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 public final class ControllerSignalStore {
@@ -13,9 +11,6 @@ public final class ControllerSignalStore {
 
     public static void setSignal(final Level level, final BlockPos pos, final String channel, final int value) {
         WireNetworkManager.trySetSignalAt(level, pos, channel, value);
-        if (level instanceof final ServerLevel serverLevel) {
-            serverLevel.players().forEach(player -> WireSourceSignalPacket.sendTo(player, pos, channel, value));
-        }
     }
 
     public static void clear(final Level level, final BlockPos pos) {

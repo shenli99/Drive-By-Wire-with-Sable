@@ -38,8 +38,6 @@ public final class WireNetworkManager {
     private static final String DIRECTION_KEY = "Direction";
     private static final String CHANNEL_KEY = "Channel";
     private static final String FACING_KEY = "Facing";
-    private static final String SOURCE_VALUES_KEY = "SourceValues";
-    private static final String VALUE_KEY = "Value";
     private static final String UNSUPPORTED_CONNECTIONS_KEY = "UnsupportedConnections";
     private static final String SNAPSHOT_VERSION_KEY = "SnapshotVersion";
     private static final String OWNER_SUB_LEVEL_KEY = "OwnerSubLevel";
@@ -653,29 +651,6 @@ public final class WireNetworkManager {
         return tag;
     }
 
-    public CompoundTag saveForSync(final CompoundTag tag) {
-        save(tag);
-
-        final ListTag sourceValuesTag = new ListTag();
-        sourceValues.forEach((sourceKey, perChannel) -> perChannel.forEach((channel, value) -> {
-            if (value <= 0 || WORLD_CHANNEL.equals(channel)) {
-                return;
-            }
-
-            final CompoundTag entry = new CompoundTag();
-            entry.putLong(SOURCE_KEY, sourceKey);
-            entry.putString(CHANNEL_KEY, channel);
-            entry.putInt(VALUE_KEY, value);
-            sourceValuesTag.add(entry);
-        }));
-
-        if (!sourceValuesTag.isEmpty()) {
-            tag.put(SOURCE_VALUES_KEY, sourceValuesTag);
-        }
-
-        return tag;
-    }
-
     public void load(final CompoundTag tag) {
         sinks.clear();
         sinkReferences.clear();
@@ -710,37 +685,6 @@ public final class WireNetworkManager {
             getOrCreateSinksOnChannel(BlockPos.of(sourceKey), channel).add(sink);
             addSinkReference(sourceKey, channel, sink);
         }
-    }
-
-    public void loadForSync(final Level level, final CompoundTag tag) {
-        load(tag);
-
-        if (tag.contains(SOURCE_VALUES_KEY, Tag.TAG_LIST)) {
-            final ListTag sourceValuesTag = tag.getList(SOURCE_VALUES_KEY, Tag.TAG_COMPOUND);
-            for (final Tag entry : sourceValuesTag) {
-                if (!(entry instanceof final CompoundTag sourceValueTag)) {
-                    continue;
-                }
-
-                if (!sourceValueTag.contains(SOURCE_KEY, Tag.TAG_LONG)
-                    || !sourceValueTag.contains(CHANNEL_KEY, Tag.TAG_STRING)
-                    || !sourceValueTag.contains(VALUE_KEY, Tag.TAG_INT)) {
-                    continue;
-                }
-
-                final long sourceKey = sourceValueTag.getLong(SOURCE_KEY);
-                final String channel = sourceValueTag.getString(CHANNEL_KEY);
-                final int value = sourceValueTag.getInt(VALUE_KEY);
-                if (value <= 0) {
-                    continue;
-                }
-
-                sourceValues.computeIfAbsent(sourceKey, ignored -> new HashMap<>()).put(channel, value);
-            }
-        }
-
-        graphDirty = true;
-        flushPendingGraphRebuild(level);
     }
 
     private void remapMovedBlockInternal(final BlockPos oldPos, final BlockPos newPos) {
