@@ -1,0 +1,15 @@
+package edn.stratodonut.drivebywire.mixin.client;
+
+import net.minecraft.core.BlockPos;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.gen.Accessor;
+
+@Pseudo
+@Mixin(targets = "com.getitemfromblock.create_tweaked_controllers.controller.TweakedLinkedControllerClientHandler", remap = false)
+public interface MixinTweakedLinkedControllerClientHandlerAccessor {
+    @Accessor("lecternPos")
+    static BlockPos drivebywire$getLecternPos() {
+        throw new AssertionError();
+    }
+}

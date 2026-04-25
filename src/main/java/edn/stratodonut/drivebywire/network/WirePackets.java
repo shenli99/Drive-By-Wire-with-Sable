@@ -9,6 +9,8 @@ public final class WirePackets {
     public static void register(final RegisterPayloadHandlersEvent event) {
         event.registrar("1")
             .playToClient(WireNetworkFullSyncPacket.TYPE, WireNetworkFullSyncPacket.STREAM_CODEC, WireNetworkFullSyncPacket::handle)
+            .playToClient(WireSourceSignalPacket.TYPE, WireSourceSignalPacket.STREAM_CODEC, WireSourceSignalPacket::handle)
+            .playToServer(BindLecternControllerHubPacket.TYPE, BindLecternControllerHubPacket.STREAM_CODEC, BindLecternControllerHubPacket::handle)
             .playToServer(WireAddConnectionPacket.TYPE, WireAddConnectionPacket.STREAM_CODEC, WireAddConnectionPacket::handle)
             .playToServer(WireRemoveConnectionPacket.TYPE, WireRemoveConnectionPacket.STREAM_CODEC, WireRemoveConnectionPacket::handle)
             .playToServer(WireNetworkRequestSyncPacket.TYPE, WireNetworkRequestSyncPacket.STREAM_CODEC, WireNetworkRequestSyncPacket::handle);

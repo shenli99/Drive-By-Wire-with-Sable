@@ -3,6 +3,7 @@ package edn.stratodonut.drivebywire.mixin.compat.tweaked;
 import com.getitemfromblock.create_tweaked_controllers.block.TweakedLecternControllerBlockEntity;
 import com.getitemfromblock.create_tweaked_controllers.packet.TweakedLinkedControllerStopLecternPacket;
 import edn.stratodonut.drivebywire.compat.TweakedControllerWireServerHandler;
+import edn.stratodonut.drivebywire.mixinducks.LecternControllerHubDuck;
 import edn.stratodonut.drivebywire.util.HubItem;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -22,6 +23,9 @@ public class MixinTweakedControllerStopLecternPacket {
         final CallbackInfo ci
     ) {
         TweakedControllerWireServerHandler.reset(player.level(), lectern.getBlockPos());
+        if (lectern instanceof final LecternControllerHubDuck lecternHub && lecternHub.drivebywire$getHubPos() != null) {
+            TweakedControllerWireServerHandler.reset(player.level(), lecternHub.drivebywire$getHubPos());
+        }
     }
 
     @Inject(method = "handleItem", at = @At("RETURN"), remap = false)

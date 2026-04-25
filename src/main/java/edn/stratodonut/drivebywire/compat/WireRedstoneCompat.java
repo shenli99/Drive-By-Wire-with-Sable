@@ -17,6 +17,9 @@ public final class WireRedstoneCompat {
         final int baseSignal = level.getSignal(queriedPos, queriedDirection);
         final BlockPos sinkPos = queriedPos.relative(queriedDirection);
         final Direction sinkFace = queriedDirection.getOpposite();
-        return Math.max(baseSignal, WireNetworkManager.get(level).getSignalAt(sinkPos, sinkFace));
+        final WireNetworkManager manager = WireNetworkManager.get(level);
+        final int consumerFaceSignal = manager.getSignalAt(sinkPos, sinkFace);
+        final int providerFaceSignal = manager.getSignalAt(queriedPos, queriedDirection);
+        return Math.max(baseSignal, Math.max(consumerFaceSignal, providerFaceSignal));
     }
 }

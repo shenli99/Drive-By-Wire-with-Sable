@@ -24,11 +24,11 @@ public record WireNetworkFullSyncPacket(CompoundTag network) implements CustomPa
     }
 
     public static void sendTo(final ServerPlayer player) {
-        final CompoundTag tag = WireNetworkManager.get(player.serverLevel()).save(new CompoundTag());
+        final CompoundTag tag = WireNetworkManager.get(player.serverLevel()).saveForSync(new CompoundTag());
         PacketDistributor.sendToPlayer(player, new WireNetworkFullSyncPacket(tag));
     }
 
     public static void handle(final WireNetworkFullSyncPacket payload, final IPayloadContext context) {
-        context.enqueueWork(() -> WireNetworkManager.get(context.player().level()).load(payload.network()));
+        context.enqueueWork(() -> WireNetworkManager.get(context.player().level()).loadForSync(context.player().level(), payload.network()));
     }
 }

@@ -4,6 +4,7 @@ import com.getitemfromblock.create_tweaked_controllers.block.TweakedLecternContr
 import com.getitemfromblock.create_tweaked_controllers.controller.ControllerRedstoneOutput;
 import com.getitemfromblock.create_tweaked_controllers.packet.TweakedLinkedControllerButtonPacket;
 import edn.stratodonut.drivebywire.compat.TweakedControllerWireServerHandler;
+import edn.stratodonut.drivebywire.mixinducks.LecternControllerHubDuck;
 import edn.stratodonut.drivebywire.util.HubItem;
 import java.util.List;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,7 +29,11 @@ public abstract class MixinTweakedControllerButtonPacket {
     ) {
         final ControllerRedstoneOutput output = new ControllerRedstoneOutput();
         output.DecodeButtons(buttonStates);
-        TweakedControllerWireServerHandler.receiveButton(player.level(), lectern.getBlockPos(), List.of(output.buttons));
+        final List<Boolean> buttons = List.of(output.buttons);
+        TweakedControllerWireServerHandler.receiveButton(player.level(), lectern.getBlockPos(), buttons);
+        if (lectern instanceof final LecternControllerHubDuck lecternHub && lecternHub.drivebywire$getHubPos() != null) {
+            TweakedControllerWireServerHandler.receiveButton(player.level(), lecternHub.drivebywire$getHubPos(), buttons);
+        }
     }
 
     @Inject(method = "handleItem", at = @At("RETURN"), remap = false)

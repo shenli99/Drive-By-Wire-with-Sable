@@ -1,5 +1,6 @@
 package edn.stratodonut.drivebywire.util;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
@@ -22,15 +23,20 @@ public final class HubItem {
         itemStack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
-    public static void ifHubPresent(final ItemStack itemStack, final Consumer<BlockPos> consumer) {
+    public static Optional<BlockPos> getHubPos(final ItemStack itemStack) {
         final CompoundTag tag = itemStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (tag.contains(HUB_KEY, Tag.TAG_LONG)) {
-            consumer.accept(BlockPos.of(tag.getLong(HUB_KEY)));
-            return;
+            return Optional.of(BlockPos.of(tag.getLong(HUB_KEY)));
         }
 
         if (tag.contains(LEGACY_HUB_KEY, Tag.TAG_LONG)) {
-            consumer.accept(BlockPos.of(tag.getLong(LEGACY_HUB_KEY)));
+            return Optional.of(BlockPos.of(tag.getLong(LEGACY_HUB_KEY)));
         }
+
+        return Optional.empty();
+    }
+
+    public static void ifHubPresent(final ItemStack itemStack, final Consumer<BlockPos> consumer) {
+        getHubPos(itemStack).ifPresent(consumer);
     }
 }

@@ -38,6 +38,8 @@ public final class WireNetworkManager {
     private static final String DIRECTION_KEY = "Direction";
     private static final String CHANNEL_KEY = "Channel";
     private static final String FACING_KEY = "Facing";
+    private static final String SOURCE_VALUES_KEY = "SourceValues";
+    private static final String VALUE_KEY = "Value";
     private static final String UNSUPPORTED_CONNECTIONS_KEY = "UnsupportedConnections";
     private static final String SNAPSHOT_VERSION_KEY = "SnapshotVersion";
     private static final String OWNER_SUB_LEVEL_KEY = "OwnerSubLevel";
@@ -49,10 +51,13 @@ public final class WireNetworkManager {
     private static final WorldAttached<WireNetworkManager> CLIENT_MANAGERS = new WorldAttached<>(level -> new WireNetworkManager(() -> {}));
 
     private final Map<Long, Map<String, Set<WireNetworkSink>>> sinks = new HashMap<>();
+    private final Map<Long, Set<SinkReference>> sinkReferences = new HashMap<>();
     private final Map<Long, Map<String, Integer>> sourceValues = new HashMap<>();
     private final Map<BlockFace, WireNetworkNode> nodes = new HashMap<>();
+    private final Set<BlockFace> staleFaces = new HashSet<>();
     private final Runnable dirtyMarker;
     private boolean attachedToLevel;
+    private boolean graphDirty;
 
     WireNetworkManager(final Runnable dirtyMarker) {
         this.dirtyMarker = dirtyMarker;
@@ -104,6 +109,23 @@ public final class WireNetworkManager {
         get(level).setSource(level, source, channel, value);
     }
 
+    public static void handleAssemblyMove(
+        final ServerLevel originLevel,
+        final ServerLevel resultingLevel,
+        final BlockPos oldPos,
+        final BlockPos newPos
+    ) {
+        final WireNetworkManager originManager = get(originLevel);
+        originManager.remapMovedBlockInternal(oldPos, newPos);
+
+        if (resultingLevel != originLevel) {
+            final WireNetworkManager resultingManager = get(resultingLevel);
+            if (resultingManager != originManager) {
+                resultingManager.remapMovedBlockInternal(oldPos, newPos);
+            }
+        }
+    }
+
     public ConnectionResult addConnection(
         final Level level,
         final BlockPos source,
@@ -116,7 +138,7 @@ public final class WireNetworkManager {
         }
 
         final long sourceKey = source.asLong();
-        if (!sinks.containsKey(sourceKey) && sinks.size() >= MAX_SOURCES) {
+        if (!sinks.containsKey(sourceKey) && countSourcesInSameDomain(level, source) >= MAX_SOURCES) {
             return ConnectionResult.FAIL_TOO_MANY_SOURCES;
         }
 
@@ -130,6 +152,7 @@ public final class WireNetworkManager {
             return ConnectionResult.FAIL_EXISTS;
         }
 
+        addSinkReference(sourceKey, channel, sink);
         dirtyMarker.run();
         applySignalToSink(level, sourceKey, channel, sink, getCurrentSignal(level, source, channel));
         return ConnectionResult.OK;
@@ -169,6 +192,7 @@ public final class WireNetworkManager {
             return false;
         }
 
+        removeSinkReference(sourceKey, channel, sink);
         applySignalToSink(level, sourceKey, channel, sink, 0);
 
         if (sinksOnChannel.isEmpty()) {
@@ -190,7 +214,10 @@ public final class WireNetworkManager {
             return false;
         }
 
-        perChannel.forEach((channel, sinksOnChannel) -> sinksOnChannel.forEach(sink -> applySignalToSink(level, sourceKey, channel, sink, 0)));
+        perChannel.forEach((channel, sinksOnChannel) -> sinksOnChannel.forEach(sink -> {
+            removeSinkReference(sourceKey, channel, sink);
+            applySignalToSink(level, sourceKey, channel, sink, 0);
+        }));
         dirtyMarker.run();
         return true;
     }
@@ -593,6 +620,25 @@ public final class WireNetworkManager {
         });
     }
 
+    public void flushPendingGraphRebuild(final Level level) {
+        if (!graphDirty) {
+            return;
+        }
+
+        final Set<BlockFace> previousFaces = new HashSet<>(staleFaces);
+        staleFaces.clear();
+        nodes.clear();
+
+        sinks.forEach((sourceKey, perChannel) -> perChannel.forEach((channel, sinksOnChannel) -> {
+            final int signal = getCurrentSignal(level, BlockPos.of(sourceKey), channel);
+            sinksOnChannel.forEach(sink -> applySignalToSink(level, sourceKey, channel, sink, signal));
+        }));
+
+        previousFaces.removeAll(nodes.keySet());
+        previousFaces.forEach(face -> notifySink(level, face));
+        graphDirty = false;
+    }
+
     public CompoundTag save(final CompoundTag tag) {
         final ListTag connections = new ListTag();
         sinks.forEach((sourceKey, perChannel) -> perChannel.forEach((channel, sinksOnChannel) -> sinksOnChannel.forEach(sink -> {
@@ -607,11 +653,37 @@ public final class WireNetworkManager {
         return tag;
     }
 
+    public CompoundTag saveForSync(final CompoundTag tag) {
+        save(tag);
+
+        final ListTag sourceValuesTag = new ListTag();
+        sourceValues.forEach((sourceKey, perChannel) -> perChannel.forEach((channel, value) -> {
+            if (value <= 0 || WORLD_CHANNEL.equals(channel)) {
+                return;
+            }
+
+            final CompoundTag entry = new CompoundTag();
+            entry.putLong(SOURCE_KEY, sourceKey);
+            entry.putString(CHANNEL_KEY, channel);
+            entry.putInt(VALUE_KEY, value);
+            sourceValuesTag.add(entry);
+        }));
+
+        if (!sourceValuesTag.isEmpty()) {
+            tag.put(SOURCE_VALUES_KEY, sourceValuesTag);
+        }
+
+        return tag;
+    }
+
     public void load(final CompoundTag tag) {
         sinks.clear();
+        sinkReferences.clear();
         sourceValues.clear();
         nodes.clear();
+        staleFaces.clear();
         attachedToLevel = false;
+        graphDirty = false;
 
         if (!tag.contains(CONNECTIONS_KEY, Tag.TAG_LIST)) {
             return;
@@ -634,13 +706,149 @@ public final class WireNetworkManager {
             final long sinkKey = connection.getLong(SINK_KEY);
             final int direction = connection.getByte(DIRECTION_KEY);
             final String channel = connection.getString(CHANNEL_KEY);
-            getOrCreateSinksOnChannel(BlockPos.of(sourceKey), channel).add(new WireNetworkSink(sinkKey, direction));
+            final WireNetworkSink sink = new WireNetworkSink(sinkKey, direction);
+            getOrCreateSinksOnChannel(BlockPos.of(sourceKey), channel).add(sink);
+            addSinkReference(sourceKey, channel, sink);
+        }
+    }
+
+    public void loadForSync(final Level level, final CompoundTag tag) {
+        load(tag);
+
+        if (tag.contains(SOURCE_VALUES_KEY, Tag.TAG_LIST)) {
+            final ListTag sourceValuesTag = tag.getList(SOURCE_VALUES_KEY, Tag.TAG_COMPOUND);
+            for (final Tag entry : sourceValuesTag) {
+                if (!(entry instanceof final CompoundTag sourceValueTag)) {
+                    continue;
+                }
+
+                if (!sourceValueTag.contains(SOURCE_KEY, Tag.TAG_LONG)
+                    || !sourceValueTag.contains(CHANNEL_KEY, Tag.TAG_STRING)
+                    || !sourceValueTag.contains(VALUE_KEY, Tag.TAG_INT)) {
+                    continue;
+                }
+
+                final long sourceKey = sourceValueTag.getLong(SOURCE_KEY);
+                final String channel = sourceValueTag.getString(CHANNEL_KEY);
+                final int value = sourceValueTag.getInt(VALUE_KEY);
+                if (value <= 0) {
+                    continue;
+                }
+
+                sourceValues.computeIfAbsent(sourceKey, ignored -> new HashMap<>()).put(channel, value);
+            }
+        }
+
+        graphDirty = true;
+        flushPendingGraphRebuild(level);
+    }
+
+    private void remapMovedBlockInternal(final BlockPos oldPos, final BlockPos newPos) {
+        if (oldPos.equals(newPos)) {
+            return;
+        }
+
+        final long oldKey = oldPos.asLong();
+        final long newKey = newPos.asLong();
+        final Map<String, Set<WireNetworkSink>> movedSourceConnections = sinks.remove(oldKey);
+        final Map<String, Integer> movedSourceValues = sourceValues.remove(oldKey);
+        final Set<SinkReference> movedSinkReferences = sinkReferences.remove(oldKey);
+        if (movedSourceConnections == null && movedSourceValues == null && movedSinkReferences == null) {
+            return;
+        }
+
+        staleFaces.addAll(nodes.keySet());
+        boolean changed = false;
+
+        if (movedSourceConnections != null) {
+            final Map<String, Set<WireNetworkSink>> targetPerChannel = sinks.computeIfAbsent(newKey, ignored -> new HashMap<>());
+            movedSourceConnections.forEach((channel, movedSinksOnChannel) -> {
+                targetPerChannel.computeIfAbsent(channel, ignored -> new HashSet<>()).addAll(movedSinksOnChannel);
+                movedSinksOnChannel.forEach(sink -> {
+                    removeSinkReference(oldKey, channel, sink);
+                    addSinkReference(newKey, channel, sink);
+                });
+            });
+            changed = true;
+        }
+
+        if (movedSourceValues != null) {
+            movedSourceValues.remove(WORLD_CHANNEL);
+            if (!movedSourceValues.isEmpty()) {
+                sourceValues.computeIfAbsent(newKey, ignored -> new HashMap<>()).putAll(movedSourceValues);
+            }
+            changed = true;
+        }
+
+        if (movedSinkReferences != null) {
+            for (final SinkReference reference : movedSinkReferences) {
+                final Map<String, Set<WireNetworkSink>> perChannel = sinks.get(reference.sourcePos());
+                if (perChannel == null) {
+                    continue;
+                }
+
+                final Set<WireNetworkSink> sinksOnChannel = perChannel.get(reference.channel());
+                if (sinksOnChannel == null) {
+                    continue;
+                }
+
+                if (sinksOnChannel.remove(new WireNetworkSink(oldKey, reference.direction()))) {
+                    sinksOnChannel.add(new WireNetworkSink(newKey, reference.direction()));
+                    addSinkReference(newKey, reference.sourcePos(), reference.channel(), reference.direction());
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            graphDirty = true;
+            dirtyMarker.run();
         }
     }
 
     private Set<WireNetworkSink> getOrCreateSinksOnChannel(final BlockPos source, final String channel) {
         return sinks.computeIfAbsent(source.asLong(), ignored -> new HashMap<>())
             .computeIfAbsent(channel, ignored -> new HashSet<>());
+    }
+
+    private void addSinkReference(final long sourcePos, final String channel, final WireNetworkSink sink) {
+        addSinkReference(sink.position(), sourcePos, channel, sink.direction());
+    }
+
+    private void addSinkReference(final long sinkPos, final long sourcePos, final String channel, final int direction) {
+        sinkReferences.computeIfAbsent(sinkPos, ignored -> new HashSet<>())
+            .add(new SinkReference(sourcePos, channel, direction));
+    }
+
+    private void removeSinkReference(final long sourcePos, final String channel, final WireNetworkSink sink) {
+        final Set<SinkReference> references = sinkReferences.get(sink.position());
+        if (references == null) {
+            return;
+        }
+
+        references.remove(new SinkReference(sourcePos, channel, sink.direction()));
+        if (references.isEmpty()) {
+            sinkReferences.remove(sink.position());
+        }
+    }
+
+    private int countSourcesInSameDomain(final Level level, final BlockPos source) {
+        final SubLevel sourceSubLevel = Sable.HELPER.getContaining(level, source);
+        final UUID sourceSubLevelId = sourceSubLevel == null ? null : sourceSubLevel.getUniqueId();
+
+        int count = 0;
+        for (final long existingSourceKey : sinks.keySet()) {
+            if (isSameSourceDomain(level, BlockPos.of(existingSourceKey), sourceSubLevelId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean isSameSourceDomain(final Level level, final BlockPos source, final UUID expectedSubLevelId) {
+        final SubLevel sourceSubLevel = Sable.HELPER.getContaining(level, source);
+        final UUID sourceSubLevelId = sourceSubLevel == null ? null : sourceSubLevel.getUniqueId();
+        return Objects.equals(sourceSubLevelId, expectedSubLevelId);
     }
 
     private int getCurrentSignal(final Level level, final BlockPos source, final String channel) {
@@ -684,10 +892,17 @@ public final class WireNetworkManager {
         level.updateNeighborsAt(updatedPos, level.getBlockState(updatedPos).getBlock());
     }
 
+    private void notifySink(final Level level, final BlockFace face) {
+        final BlockPos sinkPos = BlockPos.of(face.pos());
+        final Direction sinkDirection = Direction.from3DDataValue(face.dir());
+        final BlockPos updatedPos = sinkPos.relative(sinkDirection);
+        level.updateNeighborsAt(updatedPos, level.getBlockState(updatedPos).getBlock());
+    }
+
     public enum ConnectionResult {
         OK(""),
         FAIL_EXISTS("Connection already exists!"),
-        FAIL_TOO_MANY_SOURCES("Exceeded source limit for this level!"),
+        FAIL_TOO_MANY_SOURCES("Exceeded source limit for this structure!"),
         FAIL_TOO_MANY_SINKS("Exceeded sink limit for this source!"),
         FAIL_SAME_BLOCK("Source and sink must be different blocks!");
 
@@ -727,6 +942,9 @@ public final class WireNetworkManager {
         private static ResolvedEndpoint waiting() {
             return new ResolvedEndpoint(BlockPos.ZERO, true);
         }
+    }
+
+    private record SinkReference(long sourcePos, String channel, int direction) {
     }
 
     public static int countConnectionsInBackupSnapshot(final CompoundTag snapshot) {

@@ -23,6 +23,7 @@ public final class WireCommonEvents {
             return;
         }
 
+        WireNetworkManager.get(level).flushPendingGraphRebuild(level);
         LinkedControllerWireServerHandler.tick(level);
         TweakedControllerWireServerHandler.tick(level);
     }

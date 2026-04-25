@@ -3,6 +3,7 @@ package edn.stratodonut.drivebywire.mixin.compat;
 import com.simibubi.create.content.redstone.link.controller.LecternControllerBlockEntity;
 import com.simibubi.create.content.redstone.link.controller.LinkedControllerStopLecternPacket;
 import edn.stratodonut.drivebywire.compat.LinkedControllerWireServerHandler;
+import edn.stratodonut.drivebywire.mixinducks.LecternControllerHubDuck;
 import edn.stratodonut.drivebywire.util.HubItem;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -16,6 +17,9 @@ public class MixinLinkedControllerStopLecternPacket {
     @Inject(method = "handleLectern", at = @At("RETURN"), remap = false)
     private void drivebywire$handleLectern(final ServerPlayer player, final LecternControllerBlockEntity lectern, final CallbackInfo ci) {
         LinkedControllerWireServerHandler.reset(player.level(), lectern.getBlockPos());
+        if (lectern instanceof final LecternControllerHubDuck lecternHub && lecternHub.drivebywire$getHubPos() != null) {
+            LinkedControllerWireServerHandler.reset(player.level(), lecternHub.drivebywire$getHubPos());
+        }
     }
 
     @Inject(method = "handleItem", at = @At("RETURN"), remap = false)

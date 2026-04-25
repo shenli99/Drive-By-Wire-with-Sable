@@ -4,6 +4,7 @@ import com.getitemfromblock.create_tweaked_controllers.block.TweakedLecternContr
 import com.getitemfromblock.create_tweaked_controllers.controller.ControllerRedstoneOutput;
 import com.getitemfromblock.create_tweaked_controllers.packet.TweakedLinkedControllerAxisPacket;
 import edn.stratodonut.drivebywire.compat.TweakedControllerWireServerHandler;
+import edn.stratodonut.drivebywire.mixinducks.LecternControllerHubDuck;
 import edn.stratodonut.drivebywire.util.HubItem;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,11 @@ public abstract class MixinTweakedControllerAxisPacket {
         final TweakedLecternControllerBlockEntity lectern,
         final CallbackInfo ci
     ) {
-        TweakedControllerWireServerHandler.receiveAxis(player.level(), lectern.getBlockPos(), decodeAxis(axis));
+        final List<Byte> axisValues = decodeAxis(axis);
+        TweakedControllerWireServerHandler.receiveAxis(player.level(), lectern.getBlockPos(), axisValues);
+        if (lectern instanceof final LecternControllerHubDuck lecternHub && lecternHub.drivebywire$getHubPos() != null) {
+            TweakedControllerWireServerHandler.receiveAxis(player.level(), lecternHub.drivebywire$getHubPos(), axisValues);
+        }
     }
 
     @Inject(method = "handleItem", at = @At("RETURN"), remap = false)

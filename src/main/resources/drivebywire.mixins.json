@@ -5,16 +5,22 @@
   "mixins": [
     "MixinServerLevel",
     "compat.aeronautics.MixinWheelMountBlockEntity",
+    "compat.MixinBlockSubLevelAssemblyListener",
     "compat.MixinLecternControllerBlock",
+    "compat.MixinLecternControllerBlockEntity",
     "compat.MixinLinkedControllerInputPacket",
     "compat.MixinLinkedControllerStopLecternPacket",
+    "compat.tracks.MixinSableTrackBlockEntity",
     "compat.tweaked.MixinLecternTweakedBlock",
+    "compat.tweaked.MixinTweakedLecternControllerBlockEntity",
     "compat.tweaked.MixinTweakedController",
     "compat.tweaked.MixinTweakedControllerAxisPacket",
     "compat.tweaked.MixinTweakedControllerButtonPacket",
     "compat.tweaked.MixinTweakedControllerStopLecternPacket"
   ],
   "client": [
+    "client.MixinLinkedControllerClientHandlerAccessor",
+    "client.MixinTweakedLinkedControllerClientHandlerAccessor",
     "client.MixinSchematicAndQuillHandler"
   ],
   "injectors": {
